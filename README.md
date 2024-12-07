@@ -1,6 +1,6 @@
 Opis Projektu:
 
-Projekt implementuje algorytm DBSCAN (Density-Based Spatial Clustering of Applications with Noise) w celu grupowania obrazów z zestawu danych MNIST. MNIST to popularny zbiór danych zawierający cyfry odręcznie pisane, wykorzystywany w zadaniach klasyfikacji w uczeniu maszynowym. W tym projekcie wykorzystano algorytm grupowania (clustering), aby odkryć wzorce w danych bez użycia etykiet.
+Projekt implementuje algorytm DBSCAN (Density-Based Spatial Clustering of Applications with Noise) w celu grupowania obrazów z zestawu danych MNIST. MNIST to popularny zbiór danych zawierający cyfry odręcznie pisane, wykorzystywany w zadaniach klasyfikacji w uczeniu maszynowym.
 
 Wyniki grupowania są wizualizowane za pomocą PCA (Analizy Składowych Głównych), która redukuje dane do dwóch wymiarów (DBSCAN clustering). Program pokazuje również przykłady obrazów należących do poszczególnych klastrów (obrazy cluster1.png, cluster2.png, cluster3.png, cluster4.png).
 
