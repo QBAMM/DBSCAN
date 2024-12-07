@@ -1,0 +1,133 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from keras.datasets import mnist
+
+
+
+# Funkcja obliczająca odległość euklidesową,
+# czy dwa punkty znajdują się w tej samej odległości promienia
+def euclidean_distance(point1, point2):
+    return np.sqrt(np.sum((point1 - point2) ** 2))
+
+
+# Funkcja wyszukująca sąsiadów w promieniu `eps`, tworzy listę sąsiadów.
+# Odległość ta jest mniejsza lub równa `eps`.
+def region_query(data, point_idx, eps):
+    neighbors = []
+    for i in range(len(data)):
+        if euclidean_distance(data[point_idx], data[i]) <= eps:
+            neighbors.append(i)
+    return neighbors
+
+
+# Rozszerzanie klastra
+def expand_cluster(data, labels, cluster_id, neighbors, eps, min_samples):
+    i = 0
+    while i < len(neighbors):
+        neighbor_idx = neighbors[i]
+
+        if labels[neighbor_idx] == -1:  # Szum staje się punktem klastra
+            labels[neighbor_idx] = cluster_id
+        elif labels[neighbor_idx] == 0:  # Jeszcze nieodwiedzony
+            labels[neighbor_idx] = cluster_id
+            new_neighbors = region_query(data, neighbor_idx, eps)
+            if len(new_neighbors) >= min_samples:
+                neighbors += new_neighbors
+
+        i += 1
+
+
+# Główna funkcja DBSCAN
+def dbscan(data, eps, min_samples):
+    labels = np.zeros(len(data))  # 0: nieodwiedzony, -1: szum
+    cluster_id = 0
+
+    for point_idx in range(len(data)):
+        if labels[point_idx] != 0:
+            continue  # Już odwiedzony
+
+        neighbors = region_query(data, point_idx, eps)
+        if len(neighbors) < min_samples:
+            labels[point_idx] = -1  # Punkt szumu, nie ma wystarczającej ilości sąsiadó
+        else:
+            cluster_id += 1
+            labels[point_idx] = cluster_id
+            expand_cluster(data, labels, cluster_id, neighbors, eps, min_samples)
+
+    return labels
+
+
+# Załadowanie danych MNIST
+(x_train, y_train), (_, _) = mnist.load_data()
+
+# Spłaszczenie obrazów i redukcja próbek do 500 (dla szybszego działania),
+# zamiast 784 (dane 28x28)
+x_train_flat = x_train.reshape(x_train.shape[0], -1)[:500]
+y_train_sampled = y_train[:500]
+
+# Standaryzacja danych (pominięcie kolumn o zerowej wariancji)
+mean = np.mean(x_train_flat, axis=0)
+std = np.std(x_train_flat, axis=0)
+
+# Znalezienie kolumn o niezerowej wariancji
+non_zero_variance_mask = std > 0
+
+# Usunięcie kolumn o zerowej wariancji
+x_train_flat_filtered = x_train_flat[:, non_zero_variance_mask]
+mean_filtered = mean[non_zero_variance_mask]
+std_filtered = std[non_zero_variance_mask]
+
+# Standaryzacja tylko wybranych kolumn
+x_train_scaled = (x_train_flat_filtered - mean_filtered) / std_filtered
+
+# Sprawdzenie wyników
+assert not np.isnan(x_train_scaled).any(), "Dane zawierają NaN!"
+assert not np.isinf(x_train_scaled).any(), "Dane zawierają Inf!"
+
+
+# Parametry DBSCAN
+eps = 12.0  # Promień sąsiedztwa
+min_samples = 5  # Minimalna liczba punktów w klastrze
+
+# Uruchomienie algorytmu DBSCAN
+labels = dbscan(x_train_scaled, eps, min_samples)
+
+# Zliczanie klastrów
+n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+print(f"Liczba klastrów: {n_clusters}")
+
+# Wizualizacja w 2D za pomocą PCA - Analiza składowych głównych
+from sklearn.decomposition import PCA
+# PCA redukuje dane do dwóch wymiarów, aby umożliwić wizualizację
+pca = PCA(n_components=2)
+x_pca = pca.fit_transform(x_train_scaled)
+
+#wykres klastrów
+plt.figure(figsize=(8, 6))
+plt.scatter(x_pca[:, 0], x_pca[:, 1], c=labels, cmap='tab10', s=10)
+plt.colorbar(label="Cluster ID")
+plt.title("DBSCAN Clustering (PCA Projection)")
+plt.xlabel("PCA Component 1")
+plt.ylabel("PCA Component 2")
+plt.show()
+
+
+# Wyświetlanie przykładów dla klastrów
+def plot_cluster_examples(x_data, y_data, labels, cluster_id, num_examples=10):
+    cluster_indices = np.where(labels == cluster_id)[0]
+    cluster_samples = x_data[cluster_indices][:num_examples]
+    cluster_labels = y_data[cluster_indices][:num_examples]
+
+    plt.figure(figsize=(10, 2))
+    for i, (img, lbl) in enumerate(zip(cluster_samples, cluster_labels)):
+        plt.subplot(1, num_examples, i + 1)
+        plt.imshow(img.reshape(28, 28), cmap='gray')
+        plt.title(f"Label: {lbl}")
+        plt.axis('off')
+    plt.suptitle(f"Examples from Cluster {cluster_id}")
+    plt.show()
+
+
+# Wyświetl przykłady obrazów dla kilku klastrów
+for cluster_id in range(1, n_clusters + 1):  # Pomijamy -1 (szum)
+    plot_cluster_examples(x_train_flat, y_train_sampled, labels, cluster_id)
